@@ -1,0 +1,16 @@
+Description
+- PDBParser is a set of libraries for parsing and data mining PDB files
+- Currently, the libraries are completely capable of understanding and handling
+   all ATOM records, multi-MODEL NMR files, altlocs, sheets, and helices
+- For mathematical routines, PDBParser uses the package hmatrix, which is a 
+    Haskell interface to GSL, BLAS, and LAPACK.  Hence, it is very fast. 
+
+Important Notes
+- While PDBParser is capable of successfully parsing multi-MODEL NMR files, all
+    functions will simply choose the first MODEL in the Protein unless otherwise noted
+
+Portability
+PDBParser uses hmatrix from Hackage for linear algebra.  On a Mac,
+sudo cabal install --global hmatrix requires that you first install GSL:
+sudo port install gsl-devel +universal
+More information: https://github.com/AlbertoRuiz/hmatrix
