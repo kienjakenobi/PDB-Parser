@@ -14,3 +14,8 @@ PDBParser uses hmatrix from Hackage for linear algebra.  On a Mac,
 sudo cabal install --global hmatrix requires that you first install GSL:
 sudo port install gsl-devel +universal
 More information: https://github.com/AlbertoRuiz/hmatrix
+
+TODO
+- Handle HETATM records
+- Remove all instances of Prelude.head and Maybe.fromJust
+    use pattern matching instead
