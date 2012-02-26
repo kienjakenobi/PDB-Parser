@@ -1,37 +1,36 @@
--- Description: Functions dealing with meta attributes, like finding atoms with 
+-- Meta.hs
+-- Functions dealing with meta attributes, like finding atoms with 
 -- certain properties
 
 module Meta (getAmino, aminosList, groupRes, fBE, delAtomName, 
     getAlt, getAtomName, getAtomID, groupResAmino, getChain,
-    getHelixAtoms, getSheetAtoms, getLoopAtoms) where
+    getHelixAtoms, getSheetAtoms, getLoopAtoms, getResID) where
 
-import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as BC
 import Data.ByteString.Internal --c2w
 import Data.List -- \\
 
 -- Custom libraries
-import DataStructures
+import PDBDataStructures
 
 -- This file contains three types of functions, as indicated by the name of each function:
 -- get = Take a list of atoms and return that list with only those elements matching some query
 -- del = Take a list of atoms and return that list with only those that do NOT match some query
 -- group = Take a list of atoms and create further lists out of the atoms based on some query
 
+-- TODO: Should these functions take and produce Protein or [Atom]?
+
 --find aminos
 -- Return a list of all atoms matching an amino acid
-getAmino :: Protein -> String -> Protein
+getAmino :: [Atom] -> String -> [Atom]
 getAmino [] _ = []
-getAmino p bs
-    | abb == BC.pack bs = [h] ++ getAmino (tail p) bs
-    | otherwise = [] ++ getAmino (tail p) bs
-    where
-        h = head p
-        abb = atomAmino h
+getAmino (p:ps) bs
+    | atomAmino p == BC.pack bs = [p] ++ getAmino ps bs
+    | otherwise = [] ++ getAmino ps bs
 
 --Take a list of atoms and turn it into a list of residue groups, grouped by amino acid
 -- Feed this something out of pr
-groupResAmino :: Protein -> [[[Atom]]]
+groupResAmino :: [Atom] -> [[Residue]]
 groupResAmino p = resGroups
     where
         -- List of groups of atoms of the same amino acid type
@@ -53,14 +52,29 @@ aminosList = list
 
 -- residue seperator
 -- Separate a list of atoms into a list of residue groups
-groupRes :: Protein -> [[Atom]]
+groupRes :: [Atom] -> [Residue]
 groupRes [] = []
-groupRes p = [taken] ++ groupRes (p \\ taken)
+groupRes pr = [res] ++ groupRes (pr \\ takenAtoms)
     where
-        h = head p
-        nm = atomRes h
-        cm = atomChain h
-        taken = [x | x <- p, atomRes x == nm, atomChain x == cm]
+        p = head pr
+        nm = atomRes p
+        cm = atomChain p
+        takenAtoms = [x | x <- pr, atomRes x == nm, atomChain x == cm]
+        res = Residue
+            { resName = atomAmino p
+            , resID = atomRes p
+            , resAtoms = takenAtoms
+            }
+
+-- Take a list of residues and a desired ID
+--  Return the 
+getResID :: [Residue] -> Int -> Maybe Residue
+getResID [] _ = Nothing
+getResID (r:rs) i
+    --
+    | resID r == i = Just r
+    | otherwise = getResID rs i where
+    
 
 --TODO: Create a single function which performs all four function: fBE, foBE, fBN, foBN
 
@@ -69,59 +83,55 @@ groupRes p = [taken] ++ groupRes (p \\ taken)
 -- Take a protein from pr and an element by character and return a list of
 --  atoms which are of that element
 -- Get only those atoms who match the given atom element symbol
-fBE :: Protein -> String -> Protein
+fBE :: [Atom] -> String -> [Atom]
 fBE [] _ = []
-fBE p str
-    | symbol == query = [x] ++ fBE (tail p) str
-    | otherwise = fBE (tail p) str
-    where
-        x = head p
-        symbol = atomSymbol x
-        query = BC.pack str
+fBE (p:ps) str
+    -- If atomSymbol same as given string, then take it
+    | atomSymbol p == BC.pack str = [p] ++ fBE ps str
+    | otherwise = fBE ps str
 
---get all atoms in protein with given atom name, such as "CA" or "OG1"
-getAtomName :: Protein -> String -> Protein
+-- Get all atoms in protein with given atom name, such as "CA" or "OG1"
+-- Example: getAtomName ps 
+getAtomName :: [Atom] -> String -> [Atom]
 getAtomName [] _ = []
-getAtomName p str
-    | atomName h == query = [h] ++ getAtomName (tail p) str
-    | otherwise = getAtomName (tail p) str where
-    h = head p
+getAtomName (p:ps) str
+    | atomName p == query = [p] ++ getAtomName ps str
+    | otherwise = getAtomName ps str where
     query = BC.pack str
 
 -- Remove those atoms which match the given atom name, such as "CA" or "OG1"
-delAtomName :: Protein -> [String] -> Protein
+delAtomName :: [Atom] -> [String] -> [Atom]
 delAtomName [] _ = []
-delAtomName p s
-    | e `elem` converted = delAtomName (tail p) s
-    | otherwise = [x] ++ delAtomName (tail p) s where
-    x = head p
-    e = atomName x
+delAtomName (p:ps) s
+    | e `elem` converted = delAtomName ps s
+    | otherwise = [p] ++ delAtomName ps s where
+    e = atomName p
     converted = map BC.pack s
 
 -- Take a protein of atoms and a helix and return only those atoms
 --  which are in that helix
-getHelixAtoms :: Protein -> Helix -> Protein
+getHelixAtoms :: [Atom] -> Helix -> [Atom]
 getHelixAtoms [] _ = []
-getHelixAtoms p h
-    | startLoc <= atomRes a && atomRes a <= endLoc = [a] ++ getHelixAtoms (tail p) h
-    | otherwise = getHelixAtoms (tail p) h where
-    a = head p
+getHelixAtoms (p:ps) h
+    | startLoc <= atomRes p && atomRes p <= endLoc = [p] ++ getHelixAtoms ps h
+    | otherwise = getHelixAtoms ps h where
     (startLoc, endLoc) = helixResList h
 
 -- Take a protein of atoms and a sheet and return only those atoms
 --  which are in that sheet
-getSheetAtoms :: Protein -> Sheet -> Protein
+getSheetAtoms :: [Atom] -> Sheet -> [Atom]
 getSheetAtoms [] _ = []
-getSheetAtoms p s
-    | startLoc <= atomRes a && atomRes a <= endLoc = [a] ++ getSheetAtoms (tail p) s
-    | otherwise = getSheetAtoms (tail p) s where
-    a = head p
+getSheetAtoms (p:ps) s
+    -- If the atom's location in the chain is within the sheet's range,
+    --  then take it
+    | startLoc <= atomRes p && atomRes p <= endLoc = [p] ++ getSheetAtoms ps s
+    | otherwise = getSheetAtoms ps s where
     (startLoc, endLoc) = sheetResList s
 
 -- Take a protein, a list of all its helices, a list of all its helices, 
 --  a list of all its sheets, and return a list of atoms which are not
 --  in those helices or sheets
-getLoopAtoms :: Protein -> [Helix] -> [Sheet] -> Protein
+getLoopAtoms :: [Atom] -> [Helix] -> [Sheet] -> [Atom]
 getLoopAtoms p h s = [i | i <- p, i `notElem` helixAtoms, i `notElem` sheetAtoms] where
     helixAtomsList = map (getHelixAtoms p) h
     sheetAtomsList = map (getSheetAtoms p) s
@@ -131,7 +141,7 @@ getLoopAtoms p h s = [i | i <- p, i `notElem` helixAtoms, i `notElem` sheetAtoms
 -- filter by altloc
 -- Return a list of all atoms of a certain altloc type
 -- Example: getAlt p ['A', ' ']
-getAlt :: Protein -> [Char] -> Protein
+getAlt :: [Atom] -> [Char] -> [Atom]
 getAlt [] _ = []
 getAlt p l
     -- Take not only those atoms with an identical altloc indicator, but
@@ -142,17 +152,18 @@ getAlt p l
     values = map c2w l
 
 -- Take a protein and return a list of atoms with the given atom reference ID #
-getAtomID :: Protein -> Int -> Protein
+getAtomID :: [Atom] -> Int -> [Atom]
 getAtomID [] _ = []
 getAtomID p i
     | atomRef h == i = [h] ++ getAtomID (tail p) i
     | otherwise = getAtomID (tail p) i where
     h = head p
 
-getChain :: Protein -> Char -> Protein
+-- Get only atoms of a certain chain
+-- Example: getChain p 'A'
+getChain :: [Atom] -> Char -> [Atom]
 getChain [] _ = []
-getChain p c
-    | atomChain a == wc = [a] ++ getChain (tail p) c
-    | otherwise = getChain (tail p) c where
-    a = head p
-    wc = c2w c
+getChain (p:ps) c
+    -- If the atom's chain is the same as the given char, then take it
+    | atomChain p == c2w c = [p] ++ getChain ps c
+    | otherwise = getChain ps c where
