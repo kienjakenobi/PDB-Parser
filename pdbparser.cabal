@@ -1,0 +1,16 @@
+name:           pdbparser
+version:        0.1
+cabal-version:  >= 1.2
+build-type:     Simple
+
+executable pdbparser
+  hs-source-dirs:  lib
+  main-is:         Main.hs
+  build-depends:   
+                   haskell2010,
+                   containers, 
+                   hmatrix, 
+                   bytestring, 
+                   bytestring-lexing,
+                   directory
+  ghc-options:     -Wall -O2 -optc-O3 -optc-ffast-math -funfolding-use-threshold=16

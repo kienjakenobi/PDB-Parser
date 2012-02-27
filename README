@@ -19,3 +19,5 @@ TODO
 - Handle HETATM records
 - Remove all instances of Prelude.head and Maybe.fromJust
     use pattern matching instead
+- Remove the Sheet and Helix data structures and simply use
+    fields in the Protein structure
